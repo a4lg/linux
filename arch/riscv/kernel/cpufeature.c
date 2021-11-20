@@ -7,6 +7,7 @@
  */
 
 #include <linux/bitmap.h>
+#include <linux/ctype.h>
 #include <linux/of.h>
 #include <asm/processor.h>
 #include <asm/hwcap.h>
@@ -64,7 +65,7 @@ void __init riscv_fill_hwcap(void)
 	struct device_node *node;
 	const char *isa;
 	char print_str[26 + 1];
-	size_t i, j, isa_len;
+	int i, j;
 	static unsigned long isa2hwcap[256] = {0};
 
 	isa2hwcap['i'] = isa2hwcap['I'] = COMPAT_HWCAP_ISA_I;
@@ -90,23 +91,56 @@ void __init riscv_fill_hwcap(void)
 			continue;
 		}
 
-		i = 0;
-		isa_len = strlen(isa);
 #if IS_ENABLED(CONFIG_32BIT)
 		if (!strncmp(isa, "rv32", 4))
-			i += 4;
+			isa += 4;
 #elif IS_ENABLED(CONFIG_64BIT)
 		if (!strncmp(isa, "rv64", 4))
-			i += 4;
+			isa += 4;
 #endif
-		for (; i < isa_len; ++i) {
-			this_hwcap |= isa2hwcap[(unsigned char)(isa[i])];
+		for (; *isa; ++isa) {
+			const char *ext = isa;
+			int ext_err = 0;
+			bool ext_long = false;
+
+			if (!('a' <= *isa && *isa <= 'z'))
+				continue; /* invalid character */
+			switch (*isa++) {
+			case 'h':
+			case 's':
+			case 'x':
+			case 'z':
+				ext_long = true;
+				while ('a' <= *isa && *isa <= 'z')
+					++isa;
+				break;
+			}
+			if (isdigit(*isa)) {
+				ext_nstr = isa;
+				do {
+					while (isdigit(*++isa))
+						;
+					if (*isa != 'p')
+						break;
+					if (!isdigit(*++isa)) {
+						ext_err = 2;
+						break;
+					}
+					while (isdigit(*++isa))
+						;
+				} while (0);
+			}
+			if (*isa != '_')
+				--isa;
 			/*
-			 * TODO: X, Y and Z extension parsing for Host ISA
-			 * bitmap will be added in-future.
+			 * TODO: Full version-aware handling including
+			 * multi-letter extensions will be added in-future.
 			 */
-			if ('a' <= isa[i] && isa[i] < 'x')
-				this_isa |= (1UL << (isa[i] - 'a'));
+			if (!ext_err) {
+				this_hwcap |= isa2hwcap[(unsigned char)*ext];
+				if (!ext_long)
+					this_isa |= (1UL << (*ext - 'a'));
+			}
 		}
 
 		/*
