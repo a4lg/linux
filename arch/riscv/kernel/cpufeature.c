@@ -60,6 +60,22 @@ bool __riscv_isa_extension_available(const unsigned long *isa_bitmap, int bit)
 }
 EXPORT_SYMBOL_GPL(__riscv_isa_extension_available);
 
+static inline int _decimal_part_to_uint(const char *s, unsigned int *res)
+{
+	unsigned int value = 0, d;
+
+	if (!isdigit(*s))
+		return -EINVAL;
+	do {
+		d = *s - '0';
+		if (value > (UINT_MAX - d) / 10)
+			return -ERANGE;
+		value = value * 10 + d;
+	} while (isdigit(*++s));
+	*res = value;
+	return 0;
+}
+
 void __init riscv_fill_hwcap(void)
 {
 	struct device_node *node;
@@ -100,6 +116,10 @@ void __init riscv_fill_hwcap(void)
 #endif
 		for (; *isa; ++isa) {
 			const char *ext = isa;
+			const char *ext_end = isa + 1;
+			const char *ext_nstr;
+			unsigned int ext_major = -1; /* default */
+			unsigned int ext_minor = 0;
 			int ext_err = 0;
 			bool ext_long = false;
 
@@ -113,6 +133,7 @@ void __init riscv_fill_hwcap(void)
 				ext_long = true;
 				while ('a' <= *isa && *isa <= 'z')
 					++isa;
+				ext_end = isa;
 				break;
 			}
 			if (isdigit(*isa)) {
@@ -120,14 +141,25 @@ void __init riscv_fill_hwcap(void)
 				do {
 					while (isdigit(*++isa))
 						;
+					if (_decimal_part_to_uint(ext_nstr,
+						&ext_major) || ext_major == -1) {
+						ext_err = 1;
+						break;
+					}
 					if (*isa != 'p')
 						break;
 					if (!isdigit(*++isa)) {
 						ext_err = 2;
 						break;
 					}
+					ext_nstr = isa;
 					while (isdigit(*++isa))
 						;
+					if (_decimal_part_to_uint(ext_nstr,
+					    &ext_minor)) {
+						ext_err = 3;
+						break;
+					}
 				} while (0);
 			}
 			if (*isa != '_')
