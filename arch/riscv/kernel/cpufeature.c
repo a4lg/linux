@@ -102,6 +102,7 @@ void __init riscv_fill_hwcap(void)
 #endif
 		for (; *isa; ++isa) {
 			const char *ext = isa++;
+			const char *ext_end = isa;
 			unsigned short ext_err = 0;
 			bool ext_long;
 
@@ -115,7 +116,21 @@ void __init riscv_fill_hwcap(void)
 				for (; *isa && *isa != '_'; ++isa)
 					if (!islower(*isa) && !isdigit(*isa))
 						ext_err = 1;
-				/* ... but must be ignored. */
+				/* Find end of the extension name backwards */
+				ext_end = isa;
+				if (ext_err)
+					break;
+				if (!isdigit(ext_end[-1]))
+					break;
+				while (isdigit(*--ext_end))
+					;
+				if (ext_end[0] != 'p'
+				    || !isdigit(ext_end[-1])) {
+					++ext_end;
+					break;
+				}
+				while (isdigit(*--ext_end))
+					;
 				break;
 			default:
 				ext_long = false;
@@ -144,7 +159,7 @@ void __init riscv_fill_hwcap(void)
 			 * TODO: Full version-aware handling including
 			 * multi-letter extensions will be added in-future.
 			 */
-			if (!ext_long && !ext_err) {
+			if (!ext_err) {
 				this_hwcap |= isa2hwcap[(unsigned char)(*ext)];
 				if (!ext_long)
 					this_isa |= (1UL << (*ext - 'a'));
