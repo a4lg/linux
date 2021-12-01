@@ -194,6 +194,14 @@ void __init riscv_fill_hwcap(void)
 			this_hwcap |= isa2hwcap[(unsigned char)(*ext)];
 			if (!ext_long)
 				this_isa |= (1UL << (*ext - 'a'));
+			if (MATCH_EXT("h"))
+				pr_info("[FEATURE_TEST] H extension is supported.\n");
+			if (MATCH_EXT("zba"))
+				pr_info("[FEATURE_TEST] Zba extension is supported.\n");
+			if (MATCH_EXT("zihintpause"))
+				pr_info("[FEATURE_TEST] ZiHintPause extension is supported.\n");
+			if (MATCH_EXT("zksed"))
+				pr_info("[FEATURE_TEST] Zksed extension is supported.\n");
 #undef MATCH_EXT
 		}
 
