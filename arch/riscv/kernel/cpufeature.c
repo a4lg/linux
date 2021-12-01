@@ -102,6 +102,7 @@ void __init riscv_fill_hwcap(void)
 #endif
 		for (; *isa; ++isa) {
 			const char *ext = isa++;
+			const char *ext_end = isa;
 			bool ext_long, ext_err = false;
 
 			switch (*ext) {
@@ -111,13 +112,28 @@ void __init riscv_fill_hwcap(void)
 				ext_long = true;
 				/* Multi-letter extension must be delimited */
 				for (; *isa && *isa != '_'; ++isa)
-					if (!islower(*isa) && !isdigit(*isa))
+					if (unlikely(!islower(*isa)
+						     && !isdigit(*isa)))
 						ext_err = true;
-				/* ... but must be ignored. */
+				/* Find end of the extension name backwards */
+				ext_end = isa;
+				if (unlikely(ext_err))
+					break;
+				if (!isdigit(ext_end[-1]))
+					break;
+				while (isdigit(*--ext_end))
+					;
+				if (ext_end[0] != 'p'
+				    || !isdigit(ext_end[-1])) {
+					++ext_end;
+					break;
+				}
+				while (isdigit(*--ext_end))
+					;
 				break;
 			default:
 				ext_long = false;
-				if (!islower(*ext)) {
+				if (unlikely(!islower(*ext))) {
 					ext_err = true;
 					break;
 				}
@@ -138,14 +154,15 @@ void __init riscv_fill_hwcap(void)
 			}
 			if (*isa != '_')
 				--isa;
-			/*
-			 * TODO: Full version-aware handling including
-			 * multi-letter extensions will be added in-future.
-			 */
-			if (ext_err || ext_long)
+
+#define MATCH_EXT(name)  (ext_end - ext == sizeof(name) - 1 \
+			  && !memcmp(ext, name, sizeof(name) - 1))
+			if (unlikely(ext_err))
 				continue;
 			this_hwcap |= isa2hwcap[(unsigned char)(*ext)];
-			this_isa |= (1UL << (*ext - 'a'));
+			if (!ext_long)
+				this_isa |= (1UL << (*ext - 'a'));
+#undef MATCH_EXT
 		}
 
 		/*
