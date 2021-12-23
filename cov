@@ -1,0 +1,55 @@
+This series implements a generic framework to parse multi-letter ISA
+extensions. This series is based on Tsukasa's v3 isa extension improvement
+series[1]. I have fixed few bugs and improved comments from that series
+(PATCH1-3). I have not used PATCH 4 from that series as we are not using
+ISA extension versioning as of now. We can add that later if required.
+
+PATCH 4 allows the probing of multi-letter extensions via a macro.
+It continues to use the common isa extensions between all the harts.
+Thus hetergenous hart systems will only see the common ISA extensions.
+
+PATCH 6 improves the /proc/cpuinfo interface for the available ISA extensions
+via /proc/cpuinfo.
+
+Here is the example output of /proc/cpuinfo:
+(with debug patches in Qemu and Linux kernel)
+
+/ # cat /proc/cpuinfo
+processor	: 0
+hart		: 0
+isa		: rv64imafdcsu
+isa-ext		: sstc,sscofpmf
+mmu		: sv48
+
+processor	: 1
+hart		: 1
+isa		: rv64imafdcsu
+isa-ext		: sstc,sscofpmf
+mmu		: sv48
+
+processor	: 2
+hart		: 2
+isa		: rv64imafdcsu
+isa-ext		: sstc,sscofpmf
+mmu		: sv48
+
+processor	: 3
+hart		: 3
+isa		: rv64imafdcsu
+isa-ext		: sstc,sscofpmf
+mmu		: sv48
+
+Anybody adding support for any new multi-letter extensions should add an
+entry to the riscv_isa_ext_id and the isa extension array. 
+E.g. The patch[2] adds the support for sstc extension.
+
+[1] https://lore.kernel.org/all/0f568515-a05e-8204-aae3-035975af3ee8@irq.a4lg.com/T/
+[2] https://github.com/atishp04/linux/commit/dfc9b0d16f5a6e4695f0b3ca2f6e3f99654992db 
+
+
+Changes from v1->v2:
+1. Instead of adding a separate DT property use the riscv,isa property.
+2. Based on Tsukasa's v3 isa extension improvement series.
+
+option-subject Provide a fraemework for RISC-V ISA extensions 
+option-prefix PATCH v2
